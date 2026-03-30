@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaceFind — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/admin.css">
+<script src="/static/admin.js" defer></script>
+</head>
+<body>
+<div class="app">
+
+<!-- ══ NAV ══ -->
+<nav id="main-nav" class="hidden">
+  <div class="logo">Face/Find <span style="font-weight:400;font-size:.75rem;color:var(--muted);-webkit-text-fill-color:var(--muted)">Admin</span></div>
+  <div class="nav-user">
+    <span>Hello, <strong id="nav-name">—</strong></span>
+    <button class="btn-link" onclick="logout()">Sign out</button>
+  </div>
+</nav>
+
+<!-- ══ AUTH ══ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-title">Admin Portal</div>
+    <div class="auth-sub">Sign in with your mobile number to manage events.</div>
+
+    <div class="error-msg" id="auth-error"></div>
+
+    <!-- Step 1: Mobile -->
+    <div id="step-mobile">
+      <div class="form-row">
+        <label>Mobile Number</label>
+        <input type="tel" id="mobile-input" placeholder="10-digit mobile" maxlength="10">
+      </div>
+      <div class="form-row hidden" id="name-row">
+        <label>Your Name <span style="color:var(--accent2)">*</span></label>
+        <input type="text" id="name-input" placeholder="Full name (first login only)">
+      </div>
+      <button class="btn btn-primary" id="send-otp-btn" onclick="sendOTP()">Send OTP</button>
+    </div>
+
+    <!-- Step 2: OTP -->
+    <div id="step-otp" class="hidden">
+      <div style="margin-bottom:16px;font-size:.85rem;color:var(--muted)">OTP sent to <strong id="otp-mobile-display" style="color:var(--text)"></strong></div>
+      <div class="form-row">
+        <label>Enter OTP</label>
+        <div class="otp-row">
+          <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+          <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+          <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+          <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+          <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+          <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="verify-otp-btn" onclick="verifyOTP()">Verify & Sign In</button>
+      <button class="btn btn-ghost" style="margin-top:10px" onclick="backToMobile()">← Change number</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div id="dashboard-screen">
+  <main>
+    <div class="page-header">
+      <div class="page-title">Events <span>Dashboard</span></div>
+      <button class="btn btn-primary" style="width:auto;padding:12px 24px" onclick="openCreateModal()">+ New Event</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Events</div>
+        <div class="stat-value accent" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Active</div>
+        <div class="stat-value green" id="stat-active">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Photos</div>
+        <div class="stat-value" id="stat-photos">0</div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Your Events</div>
+    </div>
+    <div class="events-grid" id="events-grid">
+      <div class="empty-state"><div class="icon">📋</div><p>No events yet. Create your first event.</p></div>
+    </div>
+  </main>
+</div>
+
+<!-- ══ CREATE EVENT MODAL ══ -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('create-modal')">✕</button>
+    <div class="modal-title">Create New Event</div>
+    <div class="form-row">
+      <label>Event Name *</label>
+      <input type="text" id="ev-name" placeholder="e.g. Annual College Fest 2025">
+    </div>
+    <div class="form-row">
+      <label>Description</label>
+      <textarea id="ev-desc" placeholder="Optional description…"></textarea>
+    </div>
+    <div class="form-row">
+      <label>Assign Uploader Mobile</label>
+      <input type="tel" id="ev-uploader" placeholder="10-digit mobile (optional)">
+    </div>
+    <div class="error-msg" id="create-error"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('create-modal')">Cancel</button>
+      <button class="btn btn-primary" id="create-btn" onclick="createEventFaceFinder()">Create Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EVENT DETAIL MODAL ══ -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal" style="max-width:540px">
+    <button class="modal-close" onclick="closeModal('detail-modal')">✕</button>
+    <div class="modal-title" id="detail-event-name">Event Details</div>
+
+    <div class="detail-section">
+      <div class="detail-label">Upload Link (for photographer)</div>
+      <div class="copy-row">
+        <div class="copy-input" id="detail-upload-link"></div>
+        <button class="btn-copy" onclick="copyText('detail-upload-link')">Copy</button>
+      </div>
+      <button class="btn-sm btn-sm-outline" style="margin-top:8px" onclick="regenUploadToken()">🔄 Regenerate</button>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Audience Links</div>
+
+      <div class="copy-row" style="margin-bottom: 10px;">
+        <div id="audience-active-link" class="copy-input">No audience link generated yet</div>
+        <button id="copy-audience-link-btn" class="btn-copy" type="button" onclick="copyText('audience-active-link')">Copy</button>
+      </div>
+
+      <button id="generate-audience-link-btn" class="btn-sm btn-sm-outline" type="button" onclick="generateAudienceLink()">
+        Generate Audience Link
+      </button>
+
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Status</div>
+      <div id="detail-status-badge"></div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Photos Uploaded</div>
+      <div class="detail-value" id="detail-photo-count">—</div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-label">Created</div>
+      <div class="detail-value" id="detail-created">—</div>
+    </div>
+
+    <div class="modal-footer" style="flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="closeModal('detail-modal')" style="flex:0 0 auto;width:auto;padding:10px 20px">Close</button>
+      <button class="btn-sm btn-sm-success" id="btn-activate" onclick="setEventStatus('active')" style="padding:10px 18px">✓ Activate</button>
+      <button class="btn-sm btn-sm-danger" id="btn-deactivate" onclick="setEventStatus('inactive')" style="padding:10px 18px">✗ Deactivate</button>
+      <button class="btn-sm btn-sm-outline" onclick="setEventStatus('archived')" style="padding:10px 18px">Archive</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+</body>
+</html>

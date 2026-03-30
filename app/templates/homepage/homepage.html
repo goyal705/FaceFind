@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaceFind — AI Photo Finder</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/uploader.css">
+
+<style>
+
+/* ─── Animated Background ─── */
+.bg-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.bg-glow::before,
+.bg-glow::after {
+  content: "";
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: .25;
+  animation: float 12s infinite alternate ease-in-out;
+}
+.bg-glow::before {
+  background: #38bdf8;
+  top: -100px;
+  left: -100px;
+}
+.bg-glow::after {
+  background: #818cf8;
+  bottom: -100px;
+  right: -100px;
+  animation-delay: 3s;
+}
+
+@keyframes float {
+  from { transform: translateY(0) translateX(0); }
+  to   { transform: translateY(80px) translateX(40px); }
+}
+
+/* ─── Hero ─── */
+.hero {
+  position: relative;
+  text-align: center;
+  margin: 60px 0 100px;
+}
+.hero h1 {
+  font-family: 'Syne';
+  font-size: 3.4rem;
+  line-height: 1.15;
+  margin-bottom: 18px;
+  background: linear-gradient(120deg, #38bdf8, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero p {
+  max-width: 650px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+/* ─── Glass Card ─── */
+.glass {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--border);
+}
+
+/* ─── Features ─── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
+  gap: 24px;
+  margin-bottom: 80px;
+}
+
+.card {
+  padding: 26px;
+  border-radius: var(--radius);
+  transition: all .35s cubic-bezier(.34,1.56,.64,1);
+}
+.card:hover {
+  transform: translateY(-6px) scale(1.02);
+  border-color: var(--accent);
+}
+
+/* ─── Magnetic Button ─── */
+.magnetic {
+  transition: transform .2s ease;
+}
+
+/* ─── Fade Animations ─── */
+.fade {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all .8s ease;
+}
+.fade.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── CTA ─── */
+.cta-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+}
+.big-btn {
+  padding: 16px 34px;
+  font-size: 1rem;
+}
+
+/* ─── Footer ─── */
+.footer {
+  margin-top: 100px;
+  text-align: center;
+  font-size: .8rem;
+  color: var(--muted);
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="bg-glow"></div>
+
+<div class="app">
+
+<nav>
+  <div class="logo">Face/Find</div>
+  <div class="nav-right">by <strong>Tushar Goyal</strong></div>
+</nav>
+
+<main>
+
+<!-- HERO -->
+<div class="hero fade">
+  <h1>Photos. Found.<br>Instantly.</h1>
+  <p>
+    Stop scrolling through thousands of photos. Let AI instantly find every moment you’re in.
+  </p>
+
+  <div class="cta-row">
+    <a href="/admin">
+      <button class="btn btn-primary big-btn magnetic">Admin Dashboard</button>
+    </a>
+    <a href="/uploader">
+      <button class="btn btn-ghost big-btn magnetic">Upload Photos</button>
+    </a>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<div class="grid">
+
+  <div class="card glass fade">
+    <h3 style="font-family:'Syne'">⚡ Lightning Fast</h3>
+    <p style="color:var(--muted)">Instantly detect and match faces across thousands of images.</p>
+  </div>
+
+  <div class="card glass fade">
+    <h3 style="font-family:'Syne'">📸 Bulk Upload</h3>
+    <p style="color:var(--muted)">Upload entire event albums in one go with smart processing.</p>
+  </div>
+
+  <div class="card glass fade">
+    <h3 style="font-family:'Syne'">🔗 Smart Sharing</h3>
+    <p style="color:var(--muted)">Create dynamic links that expire automatically.</p>
+  </div>
+
+  <div class="card glass fade">
+    <h3 style="font-family:'Syne'">🧠 AI Engine</h3>
+    <p style="color:var(--muted)">Powered by advanced face recognition models.</p>
+  </div>
+
+</div>
+
+<!-- ABOUT -->
+<div class="event-banner glass fade">
+  <div class="event-banner-info">
+    <h2>Built by Tushar Goyal</h2>
+    <p>
+      A modern AI-first platform transforming how event photos are shared and experienced.
+    </p>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-row fade">
+  <a href="/admin">
+    <button class="btn btn-primary big-btn magnetic">Start Managing</button>
+  </a>
+  <a href="/uploader">
+    <button class="btn btn-ghost big-btn magnetic">Upload Now</button>
+  </a>
+</div>
+
+<div class="footer fade">
+  © 2026 FaceFind · Designed for speed & simplicity
+</div>
+
+</main>
+</div>
+
+<script>
+
+/* ─── Scroll Animation ─── */
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.classList.add('show');
+  });
+});
+document.querySelectorAll('.fade').forEach(el => observer.observe(el));
+
+/* ─── Magnetic Buttons ─── */
+document.querySelectorAll('.magnetic').forEach(btn => {
+  btn.addEventListener('mousemove', e => {
+    const rect = btn.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width/2;
+    const y = e.clientY - rect.top - rect.height/2;
+    btn.style.transform = `translate(${x*0.2}px, ${y*0.2}px)`;
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.transform = '';
+  });
+});
+
+</script>
+
+</body>
+</html>

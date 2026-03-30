@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FaceFind — Photo Uploader</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <link rel="stylesheet" href="/static/uploader.css" />
+    <script>
+  window.SERVER_UPLOAD_TOKEN = {{ upload_token|default('')|tojson }};
+</script>
+
+    <script src="/static/uploader_uploadzone.js"></script>
+    <script src="/static/uploader.js"></script>
+  </head>
+  <body>
+    <div id="model-overlay">
+      <div
+        style="
+          font-family: &quot;Syne&quot;, sans-serif;
+          font-weight: 800;
+          font-size: 1.4rem;
+          background: linear-gradient(120deg, #38bdf8, #818cf8);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        "
+      >
+        FaceFind
+      </div>
+      <div class="model-bar-wrap">
+        <div class="model-bar" id="model-bar"></div>
+      </div>
+      <div class="model-text" id="model-text">
+        Loading face recognition models…
+      </div>
+    </div>
+
+    <div class="app">
+      <!-- NAV -->
+      <nav id="main-nav" class="hidden">
+        <div class="logo">
+          Face/Find
+          <span
+            style="
+              -webkit-text-fill-color: var(--muted);
+              font-size: 0.75rem;
+              font-weight: 400;
+            "
+          >
+            Uploader</span
+          >
+        </div>
+        <div class="nav-right">
+          <span
+            id="nav-event-label"
+            style="color: var(--accent); font-size: 0.79rem; font-weight: 500"
+          ></span>
+          <span>Hello, <strong id="nav-name">—</strong></span>
+          <button
+            class="btn-link"
+            id="nav-back-btn"
+            onclick="goBackToEventList()"
+            style="display: none"
+          >
+            ← All Events
+          </button>
+          <button class="btn-link" onclick="logout()">Sign out</button>
+        </div>
+      </nav>
+
+      <!-- ══ AUTH ══ -->
+      <div id="auth-screen">
+        <div class="auth-card">
+          <div class="auth-title">Photo Uploader</div>
+          <div class="auth-sub">
+            Sign in to upload event photos and generate audience links.
+          </div>
+          <div class="error-msg" id="auth-error"></div>
+          <div id="step-mobile">
+            <label>Mobile Number</label>
+            <input
+              type="tel"
+              id="mobile-input"
+              placeholder="10-digit mobile"
+              maxlength="10"
+            />
+            <div class="hidden" id="name-row" style="margin-bottom: 0">
+              <label>Your Name</label>
+              <input
+                type="text"
+                id="name-input"
+                placeholder="Full name (first login)"
+              />
+            </div>
+            <button
+              class="btn btn-primary"
+              id="send-otp-btn"
+              onclick="sendOTP()"
+            >
+              Send OTP
+            </button>
+          </div>
+          <div id="step-otp" class="hidden">
+            <div
+              style="
+                margin-bottom: 14px;
+                font-size: 0.84rem;
+                color: var(--muted);
+              "
+            >
+              OTP sent to
+              <strong
+                id="otp-mobile-display"
+                style="color: var(--text)"
+              ></strong>
+            </div>
+            <label>Enter OTP</label>
+            <div class="otp-row">
+              <input
+                type="text"
+                class="otp-digit"
+                maxlength="1"
+                inputmode="numeric"
+              />
+              <input
+                type="text"
+                class="otp-digit"
+                maxlength="1"
+                inputmode="numeric"
+              />
+              <input
+                type="text"
+                class="otp-digit"
+                maxlength="1"
+                inputmode="numeric"
+              />
+              <input
+                type="text"
+                class="otp-digit"
+                maxlength="1"
+                inputmode="numeric"
+              />
+              <input
+                type="text"
+                class="otp-digit"
+                maxlength="1"
+                inputmode="numeric"
+              />
+              <input
+                type="text"
+                class="otp-digit"
+                maxlength="1"
+                inputmode="numeric"
+              />
+            </div>
+            <button
+              class="btn btn-primary"
+              id="verify-otp-btn"
+              onclick="verifyOTP()"
+            >
+              Verify & Sign In
+            </button>
+            <button class="btn btn-ghost" onclick="backToMobile()">
+              ← Change number
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ EVENT LIST ══ -->
+      <div id="event-list-screen">
+        <main>
+          <div class="screen-header">
+            <h1>Your Events</h1>
+            <p>Pick an event to start uploading photos.</p>
+          </div>
+          <div id="event-list-container">
+            <div class="gallery-loading">
+              <div class="spin" style="border-top-color: var(--accent)"></div>
+              Loading…
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <!-- ══ DASHBOARD ══ -->
+      <div id="dashboard-screen">
+        <main>
+          <!-- Event banner -->
+          <div class="event-banner">
+            <div class="event-banner-info">
+              <h2 id="event-name-display">Loading event…</h2>
+              <p id="event-desc-display"></p>
+            </div>
+            <span class="badge badge-active">Active</span>
+          </div>
+
+          <!-- Upload zone -->
+          <div class="upload-zone" id="upload-zone">
+            <input
+              type="file"
+              id="file-input"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+            />
+            <span class="upload-icon">📷</span>
+            <h3>Drop event photos here</h3>
+            <p>JPG, PNG, WEBP · Max 15MB each · Select multiple</p>
+          </div>
+
+          <!-- Upload queue -->
+          <div id="queue-wrap" class="hidden">
+            <div class="queue-header">
+              <div class="queue-title">Upload Queue</div>
+              <div class="progress-summary" id="progress-summary">
+                0 / 0 done
+              </div>
+            </div>
+            <div class="queue-list" id="queue-list"></div>
+            <button
+              class="btn btn-primary"
+              id="upload-btn"
+              onclick="startUpload()"
+              style="max-width: 230px"
+            >
+              ⬆ Upload &amp; Index All
+            </button>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Image Gallery -->
+          <div id="gallery-section">
+            <div class="gallery-header">
+              <div class="section-label">
+                📸 Event Photos
+                <span class="gallery-count" id="gallery-count"></span>
+              </div>
+              <button class="btn-sm btn-sm-accent" onclick="loadGallery()">
+                ↻ Refresh
+              </button>
+            </div>
+            <div id="gallery-container">
+              <div class="gallery-loading">
+                <div class="spin" style="border-top-color: var(--accent)"></div>
+                Loading photos…
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Audience Link -->
+          <div class="link-section">
+            <div class="link-title">🔗 Audience Link</div>
+            <div class="link-desc">
+              Generate a link for your audience to scan their face and find
+              their photos. Each new link expires the previous one
+              automatically.
+            </div>
+            <button
+              class="btn btn-primary"
+              id="gen-link-btn"
+              onclick="generateLink()"
+              style="max-width: 220px; margin-bottom: 18px"
+            >
+              Generate New Link
+            </button>
+            <div id="active-link-wrap" class="hidden">
+              <div class="link-box">
+                <div class="link-text" id="active-link-text"></div>
+                <button class="btn-copy" onclick="copyLink()">Copy</button>
+              </div>
+              <div class="link-warning">⚠️ Previous link has been expired</div>
+            </div>
+            <div class="past-links" id="past-links"></div>
+          </div>
+        </main>
+      </div>
+    </div>
+    <!-- .app -->
+
+    <!-- Delete confirm modal -->
+    <div class="modal-overlay" id="delete-modal">
+      <div class="modal">
+        <h3>Delete this photo?</h3>
+        <p>
+          This will permanently remove the photo from storage. This cannot be
+          undone.
+        </p>
+        <div class="modal-btns">
+          <button
+            class="btn btn-ghost"
+            onclick="closeDeleteModal()"
+            style="margin-top: 0"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn"
+            id="confirm-del-btn"
+            onclick="confirmDelete()"
+            style="
+              margin-top: 0;
+              background: rgba(248, 113, 113, 0.15);
+              color: var(--danger);
+              border: 1px solid rgba(248, 113, 113, 0.25);
+            "
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </body>
+</html>
