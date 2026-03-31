@@ -103,10 +103,10 @@ async function startUpload() {
   const btn = document.getElementById("upload-btn");
   btn.disabled = true;
   btn.innerHTML = '<div class="spin"></div> Processing…';
-  const opts = new faceapi.TinyFaceDetectorOptions({
-    inputSize: 320,
-    scoreThreshold: 0.5,
-  });
+  // const opts = new faceapi.TinyFaceDetectorOptions({
+  //   inputSize: 320,
+  //   scoreThreshold: 0.5,
+  // });
   for (let i = 0; i < queue.length; i++) {
     const item = queue[i];
     if (item.status === "done") continue;
@@ -129,26 +129,27 @@ async function startUpload() {
       continue;
     }
     setItemStatus(item, "indexing");
-    try {
-      const img = await new Promise((res, rej) => {
-        const im = new Image();
-        im.onload = () => res(im);
-        im.onerror = rej;
-        im.src = item.url;
-      });
-      const dets = await faceapi
-        .detectAllFaces(img, opts)
-        .withFaceLandmarks(true)
-        .withFaceDescriptors();
-      const descs = dets.map((d) => Array.from(d.descriptor));
-      await api("POST", `/photos/${item.id}/descriptors`, {
-        descriptors: descs,
-      });
-      item.barEl.style.width = "100%";
-      setItemStatus(item, "done");
-    } catch (e) {
-      setItemStatus(item, "error");
-    }
+    setItemStatus(item, "done");
+    // try {
+    //   const img = await new Promise((res, rej) => {
+    //     const im = new Image();
+    //     im.onload = () => res(im);
+    //     im.onerror = rej;
+    //     im.src = item.url;
+    //   });
+    //   const dets = await faceapi
+    //     .detectAllFaces(img, opts)
+    //     .withFaceLandmarks(true)
+    //     .withFaceDescriptors();
+    //   const descs = dets.map((d) => Array.from(d.descriptor));
+    //   await api("POST", `/photos/${item.id}/descriptors`, {
+    //     descriptors: descs,
+    //   });
+    //   item.barEl.style.width = "100%";
+    //   setItemStatus(item, "done");
+    // } catch (e) {
+    //   setItemStatus(item, "error");
+    // }
   }
   btn.innerHTML = "⬆ Upload &amp; Index All";
   btn.disabled = false;

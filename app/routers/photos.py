@@ -12,6 +12,12 @@ from app.models.event import Event, EventStatus
 from app.models.photo import Photo
 from app.schemas import PhotoOut
 from app.services.storage import upload_file, delete_file
+import numpy as np
+import cv2
+from insightface.app import FaceAnalysis
+
+face_app = FaceAnalysis(name="buffalo_l")  # best model
+face_app.prepare(ctx_id=-1)  # use -1 for CPU
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
 
@@ -40,6 +46,12 @@ async def upload_photos(
         content = await file.read()
         if len(content) > MAX_FILE_SIZE:
             continue
+        
+        try:
+            descriptors = extract_face_descriptors(content)
+        except Exception as e:
+            descriptors = []
+            print("Face extraction failed:", e)
 
         stored = await upload_file(content, file.filename, event.id)
 
@@ -49,8 +61,8 @@ async def upload_photos(
             filename=file.filename,
             storage_path=stored["storage_path"],
             url=stored["url"],
-            face_descriptors=None,
-            faces_indexed=0,
+            face_descriptors=descriptors,
+            faces_indexed=len(descriptors),
         )
         db.add(photo)
         saved.append(photo)
@@ -60,6 +72,50 @@ async def upload_photos(
         await db.refresh(photo)
     return [PhotoOut.model_validate(p) for p in saved]
 
+def extract_face_descriptors(image_bytes: bytes):
+    np_arr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+    if img is None:
+        return []
+
+    # ✅ resize (huge speed boost)
+    h, w = img.shape[:2]
+    if w > 640:
+        scale = 640 / w
+        img = cv2.resize(img, (int(w * scale), int(h * scale)))
+
+    faces = face_app.get(img)
+
+    if not faces:
+        return []
+
+    # ✅ sort by face size (largest first)
+    faces = sorted(
+        faces,
+        key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]),
+        reverse=True
+    )
+
+    # ✅ keep only top 2–3 faces
+    faces = faces[:3]
+
+    descriptors = []
+    for face in faces:
+        # ✅ confidence filter
+        if face.det_score < 0.8:
+            continue
+
+        emb = face.embedding
+
+        # ✅ normalize
+        norm = np.linalg.norm(emb)
+        if norm != 0:
+            emb = emb / norm
+
+        descriptors.append(emb.tolist())
+
+    return descriptors
 
 # ── Save face descriptors ─────────────────────────────
 @router.post("/{photo_id}/descriptors")

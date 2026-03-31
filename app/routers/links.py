@@ -1,6 +1,7 @@
+from importlib.resources import contents
 import secrets
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from typing import List
@@ -120,16 +121,34 @@ async def audience_photos(token: str, db: AsyncSession = Depends(get_db)):
     }
 
 from math import sqrt
+from .photos import extract_face_descriptors
 
-def euclidean_distance(a: List[float], b: List[float]) -> float:
-    return sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+def normalize(v):
+    # flatten if nested
+    if isinstance(v[0], list):
+        v = v[0]
+
+    norm = sqrt(sum(x * x for x in v))
+    if norm == 0:
+        return v
+    return [x / norm for x in v]
+
+
+def cosine_distance(a, b):
+    return 1 - sum(x * y for x, y in zip(a, b))
+
 
 @router.post("/audience/{token}/match-photos", response_model=AudienceMatchResponse)
 async def audience_match_photos(
     token: str,
-    payload: AudienceMatchRequest,
+    offset: int = Form(...),
+    limit: int = Form(...),
+    threshold: float = Form(...),
+    file: UploadFile = File(...),
+    # payload: AudienceMatchRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    print("Received match request:", token, offset, limit, threshold, file.filename)
     link_result = await db.execute(
         select(AudienceLink).where(
             AudienceLink.token == token,
@@ -150,9 +169,11 @@ async def audience_match_photos(
     if not event or event.status != EventStatus.active:
         raise HTTPException(403, "Event is not active")
 
-    limit = min(max(payload.limit, 1), 50)
-    offset = max(payload.offset, 0)
-    threshold = payload.threshold
+    limit = min(max(limit, 1), 50)
+    offset = max(offset, 0)
+
+    # 🔥 cosine threshold
+    threshold = min(max(threshold, 0.2), 0.6)
 
     photos_result = await db.execute(
         select(Photo)
@@ -161,13 +182,18 @@ async def audience_match_photos(
         .offset(offset)
         .limit(limit + 1)
     )
+
     rows = photos_result.scalars().all()
 
     has_more = len(rows) > limit
     photos = rows[:limit]
 
     matches = []
-    user_descriptor = payload.descriptor
+
+    # 🔥 normalize once
+    contents = await file.read()
+    user_face = extract_face_descriptors(contents)
+    user_descriptor = normalize(user_face)
 
     for p in photos:
         if not p.face_descriptors:
@@ -176,15 +202,20 @@ async def audience_match_photos(
         best_dist = float("inf")
 
         for raw in p.face_descriptors:
-            if not raw or len(raw) != 128:
+            if not raw:
                 continue
 
-            dist = euclidean_distance(user_descriptor, raw)
+            dist = cosine_distance(user_descriptor, raw)
+
             if dist < best_dist:
                 best_dist = dist
 
         if best_dist <= threshold:
-            confidence = max(0, min(100, round((1 - best_dist / 0.65) * 100)))
+            confidence = max(
+                0,
+                min(100, round((1 - best_dist) * 100))
+            )
+
             matches.append({
                 "id": p.id,
                 "url": p.url,

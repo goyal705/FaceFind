@@ -9,7 +9,7 @@ let lightboxUrl = "", lightboxName = "";
 let foundMatches = [];
 let totalProcessed = 0;
 let isSearching = false;
-
+let capturedBlob = null;
 const MATCH_THRESHOLD = 0.52;
 const BATCH_SIZE = 10;
 const PARALLEL_WORKERS = 3;
@@ -176,6 +176,13 @@ async function captureAndSearch() {
   ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
   ctx.restore();
 
+  // convert to blob
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", 0.9)
+  );
+
+  capturedBlob = blob;
+
   const opts = new faceapi.TinyFaceDetectorOptions({
     inputSize: 320,
     scoreThreshold: 0.5,
@@ -218,6 +225,8 @@ async function captureAndSearch() {
 
     await runSearch();
   } catch (e) {
+    console.log(e);
+    
     status.textContent = "Processing error, please try again.";
     status.className = "camera-status err";
     btn.disabled = false;
@@ -227,17 +236,19 @@ async function captureAndSearch() {
 
 // ── Batch matching API ────────────────────────────────
 async function matchBatch(offset, limit) {
+  const formData = new FormData();
+  formData.append("file", capturedBlob, "capture.jpg");
+  formData.append("offset", String(offset));
+  formData.append("limit", String(limit));
+  formData.append("threshold", String(MATCH_THRESHOLD));
+  console.log(formData);
+  
   const res = await fetch(`${API}/links/audience/${audienceToken}/match-photos`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      descriptor: Array.from(userDescriptor),
-      offset,
-      limit,
-      threshold: MATCH_THRESHOLD,
-    }),
+    // headers: {
+    //   "Content-Type": "application/json",
+    // },
+    body: formData,
   });
 
   if (!res.ok) {
@@ -447,6 +458,7 @@ function resetScan() {
   foundMatches = [];
   totalProcessed = 0;
   isSearching = false;
+  capturedBlob = null;
 
   const video = document.getElementById("video");
   video.style.display = "block";
