@@ -1,0 +1,25 @@
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Environment files
+*.env
+*.sqlite3
+
+# Editor directories
+.vscode/
+.idea/
+
+# Uploads/local files
+uploads/
