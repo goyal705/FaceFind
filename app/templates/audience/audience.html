@@ -1,97 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FaceFind — Find Your Photos</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-<link rel="stylesheet" href="/static/audience.css">
-<script src="/static/audience.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaceFind • Find Your Photos</title>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <link rel="stylesheet" href="/static/audience.css" />
+  <script src="/static/audience.js" defer></script>
 </head>
 <body>
-
-<div id="model-overlay">
-  <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;background:linear-gradient(120deg,#c084fc,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent">FaceFind</div>
-  <div class="model-bar-wrap"><div class="model-bar" id="model-bar"></div></div>
-  <div class="model-text" id="model-text">Loading AI models…</div>
-</div>
-
-<!-- INVALID LINK -->
-<div id="invalid-screen" class="invalid-screen z1" style="display:none">
-  <div class="invalid-card">
-    <div class="icon">🔗</div>
-    <h2>Link Expired or Invalid</h2>
-    <p>This audience link is no longer active. Please ask the photographer to generate a new link for you.</p>
-  </div>
-</div>
-
-<!-- MAIN APP -->
-<div id="main-app" class="z1" style="display:none">
-  <header>
-    <div class="logo">Face/Find</div>
-    <div class="event-title" id="event-title">Loading…</div>
-    <div class="event-sub">Scan your face to find all your photos from this event</div>
-  </header>
-
-  <div class="steps" id="steps-wrap">
-    <div class="step active" id="dot1"><div class="step-dot">1</div><div class="step-label">Scan Face</div></div>
-    <div class="step" id="dot2"><div class="step-dot">2</div><div class="step-label">Search</div></div>
-    <div class="step" id="dot3"><div class="step-dot">3</div><div class="step-label">Download</div></div>
+  <div id="model-overlay">
+    <div style="font-family: Syne, sans-serif; font-weight: 800; font-size: 1.5rem; background: linear-gradient(120deg, #c084fc, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+      FaceFind
+    </div>
+    <div class="model-bar-wrap">
+      <div class="model-bar" id="model-bar"></div>
+    </div>
+    <div class="model-text" id="model-text">Loading AI models…</div>
   </div>
 
-  <div class="card">
-    <!-- SCAN PANEL -->
-    <div class="panel active" id="panel-scan">
-      <div class="camera-center">
-        <div class="camera-title">Look straight at the camera</div>
-        <div class="camera-desc">We'll detect your face and search all <strong id="photo-count-display">—</strong> event photos for you.</div>
+  <!-- INVALID LINK -->
+  <div id="invalid-screen" class="invalid-screen z1" style="display:none;">
+    <div class="invalid-card">
+      <div class="icon">⚠️</div>
+      <h2>Link Expired or Invalid</h2>
+      <p>This audience link is no longer active. Please ask the photographer to generate a new link for you.</p>
+    </div>
+  </div>
 
-        <img id="snap-preview" src="" alt="Your captured face">
+  <!-- MAIN APP -->
+  <div id="main-app" class="z1" style="display:none;">
+    <header>
+      <div class="logo">FaceFind</div>
+      <div class="event-title" id="event-title">Loading…</div>
+      <div class="event-sub">Scan your face to find all your photos from this event.</div>
+    </header>
 
-        <div class="camera-wrap">
-          <div class="camera-ring" id="cam-ring"><div class="camera-ring-inner"></div></div>
-          <video id="video" autoplay muted playsinline></video>
-          <canvas id="canvas"></canvas>
-          <div class="scan-line" id="scan-line"></div>
+    <div class="steps" id="steps-wrap">
+      <div class="step active" id="dot1">
+        <div class="step-dot">1</div>
+        <div class="step-label">Scan Face</div>
+      </div>
+      <div class="step" id="dot2">
+        <div class="step-dot">2</div>
+        <div class="step-label">Search</div>
+      </div>
+      <div class="step" id="dot3">
+        <div class="step-dot">3</div>
+        <div class="step-label">Download</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <!-- SCAN PANEL -->
+      <div class="panel active" id="panel-scan">
+        <div class="camera-center">
+          <div class="camera-title">Look straight at the camera</div>
+          <div class="camera-desc">
+            We'll detect your face and search all <strong id="photo-count-display">—</strong> event photos for you.
+          </div>
+
+          <img id="snap-preview" src="" alt="Your captured face" />
+
+          <div class="camera-wrap">
+            <div class="camera-ring" id="cam-ring">
+              <div class="camera-ring-inner"></div>
+            </div>
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="canvas"></canvas>
+            <div class="scan-line" id="scan-line"></div>
+          </div>
+
+          <div class="camera-status" id="cam-status">Press "Start Camera" to begin</div>
+
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="btn-start-cam" onclick="startCamera()">Start Camera</button>
+            <button class="btn btn-primary" id="btn-snap" disabled onclick="captureAndSearch()">🔍 Find My Photos</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEARCHING PANEL -->
+      <div class="panel" id="panel-searching">
+        <div class="empty">
+          <div class="icon" style="opacity:1; animation:spin 1s linear infinite; display:inline-block;">⚙️</div>
+          <h3 style="opacity:1; margin-top:12px;">Searching…</h3>
+          <p id="search-progress-text">Comparing your face against event photos…</p>
+        </div>
+      </div>
+
+      <!-- RESULTS PANEL -->
+      <div class="panel" id="panel-results">
+        <div class="results-top">
+          <div class="results-title">Found <span id="result-count">0</span> photos</div>
+          <button
+            class="btn btn-ghost"
+            style="padding:9px 20px; font-size:.82rem"
+            onclick="resetScan()"
+          >
+            Scan Again
+          </button>
         </div>
 
-        <div class="camera-status" id="cam-status">Press "Start Camera" to begin</div>
-
-        <div class="btn-row">
-          <button class="btn btn-ghost" id="btn-start-cam" onclick="startCamera()">📷 Start Camera</button>
-          <button class="btn btn-primary" id="btn-snap" disabled onclick="captureAndSearch()">🔍 Find My Photos</button>
-        </div>
+        <div class="results-grid" id="results-grid"></div>
       </div>
-    </div>
-
-    <!-- SEARCHING PANEL -->
-    <div class="panel" id="panel-searching">
-      <div class="empty">
-        <div class="icon" style="opacity:1;animation:spin 1s linear infinite;display:inline-block">⚙️</div>
-        <h3 style="opacity:1;margin-top:12px">Searching…</h3>
-        <p id="search-progress-text">Comparing your face against event photos…</p>
-      </div>
-    </div>
-
-    <!-- RESULTS PANEL -->
-    <div class="panel" id="panel-results">
-      <div class="results-top">
-        <div class="results-title">Found <span id="result-count">0</span> photos</div>
-        <button class="btn btn-ghost" style="padding:9px 20px;font-size:.82rem" onclick="resetScan()">🔄 Scan Again</button>
-      </div>
-      <div class="results-grid" id="results-grid"></div>
     </div>
   </div>
-</div>
 
-<!-- LIGHTBOX -->
-<div class="lightbox" id="lightbox">
-  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-  <img id="lightbox-img" src="" alt="">
-  <button class="lightbox-dl" onclick="downloadLightbox()">⬇ Download</button>
-</div>
+  <!-- LIGHTBOX -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <img id="lightbox-img" src="" alt="Preview" />
+    <button class="lightbox-dl" onclick="downloadLightbox()">Download</button>
+  </div>
 
-<div class="toast" id="toast"></div>
+  <div class="toast" id="toast"></div>
 </body>
 </html>

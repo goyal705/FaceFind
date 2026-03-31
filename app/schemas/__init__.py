@@ -82,3 +82,25 @@ class FaceSearchResult(BaseModel):
     url: str
     filename: str
     confidence: float  # 0-100
+
+class AudienceMatchRequest(BaseModel):
+    descriptor: List[float] = Field(..., min_length=128, max_length=128)
+    offset: int = 0
+    limit: int = 10
+    threshold: float = 0.52
+
+class AudienceMatchPhoto(BaseModel):
+    id: int
+    url: str
+    filename: Optional[str] = None
+    distance: float
+    confidence: int
+
+class AudienceMatchResponse(BaseModel):
+    event_id: int
+    event_name: str
+    offset: int
+    limit: int
+    processed: int
+    has_more: bool
+    matches: List[AudienceMatchPhoto]

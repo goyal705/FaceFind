@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models.event import Event, EventStatus
 from app.models.link import AudienceLink
 from app.models.photo import Photo
-from app.schemas import LinkOut, FaceSearchResult
+from app.schemas import LinkOut, FaceSearchResult, AudienceMatchRequest, AudienceMatchResponse
 
 router = APIRouter(prefix="/links", tags=["Audience Links"])
 
@@ -117,4 +117,90 @@ async def audience_photos(token: str, db: AsyncSession = Depends(get_db)):
             }
             for p in photos
         ]
+    }
+
+from math import sqrt
+
+def euclidean_distance(a: List[float], b: List[float]) -> float:
+    return sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+
+@router.post("/audience/{token}/match-photos", response_model=AudienceMatchResponse)
+async def audience_match_photos(
+    token: str,
+    payload: AudienceMatchRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    link_result = await db.execute(
+        select(AudienceLink).where(
+            AudienceLink.token == token,
+            AudienceLink.is_active == True
+        )
+    )
+    link = link_result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(403, "Link is invalid or has expired")
+
+    if link.expires_at and link.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(403, "Link has expired")
+
+    event_result = await db.execute(
+        select(Event).where(Event.id == link.event_id)
+    )
+    event = event_result.scalar_one_or_none()
+    if not event or event.status != EventStatus.active:
+        raise HTTPException(403, "Event is not active")
+
+    limit = min(max(payload.limit, 1), 50)
+    offset = max(payload.offset, 0)
+    threshold = payload.threshold
+
+    photos_result = await db.execute(
+        select(Photo)
+        .where(Photo.event_id == link.event_id)
+        .order_by(Photo.uploaded_at.asc())
+        .offset(offset)
+        .limit(limit + 1)
+    )
+    rows = photos_result.scalars().all()
+
+    has_more = len(rows) > limit
+    photos = rows[:limit]
+
+    matches = []
+    user_descriptor = payload.descriptor
+
+    for p in photos:
+        if not p.face_descriptors:
+            continue
+
+        best_dist = float("inf")
+
+        for raw in p.face_descriptors:
+            if not raw or len(raw) != 128:
+                continue
+
+            dist = euclidean_distance(user_descriptor, raw)
+            if dist < best_dist:
+                best_dist = dist
+
+        if best_dist <= threshold:
+            confidence = max(0, min(100, round((1 - best_dist / 0.65) * 100)))
+            matches.append({
+                "id": p.id,
+                "url": p.url,
+                "filename": p.filename,
+                "distance": round(best_dist, 6),
+                "confidence": confidence,
+            })
+
+    matches.sort(key=lambda x: x["distance"])
+
+    return {
+        "event_id": event.id,
+        "event_name": event.name,
+        "offset": offset,
+        "limit": limit,
+        "processed": len(photos),
+        "has_more": has_more,
+        "matches": matches,
     }
