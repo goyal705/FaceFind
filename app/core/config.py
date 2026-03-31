@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     CLOUDINARY_API_SECRET: str = ""
 
     class Config:
-        env_file = ".env.example"
+        env_file = ".env"
         extra = "ignore"
 
 settings = Settings()
