@@ -44,7 +44,7 @@ app.include_router(links.router,  prefix="/api")
 async def health():
     return {"status": "ok", "version": "1.0.0"}
 
-@app.get("/homepage", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse)
 async def homepage_page(request: Request):
     return templates.TemplateResponse(
         "homepage/homepage.html",
