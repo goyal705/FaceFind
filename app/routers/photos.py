@@ -16,7 +16,7 @@ import numpy as np
 import cv2
 from insightface.app import FaceAnalysis
 
-face_app = FaceAnalysis(name="buffalo_l")  # best model
+face_app = FaceAnalysis(name="buffalo_s")  # best model
 face_app.prepare(ctx_id=-1)  # use -1 for CPU
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
@@ -103,7 +103,7 @@ def extract_face_descriptors(image_bytes: bytes):
     descriptors = []
     for face in faces:
         # ✅ confidence filter
-        if face.det_score < 0.8:
+        if face.det_score < 0.7:
             continue
 
         emb = face.embedding
