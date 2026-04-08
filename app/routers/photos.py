@@ -14,10 +14,11 @@ from app.schemas import PhotoOut
 from app.services.storage import upload_file, delete_file
 import numpy as np
 import cv2
-from insightface.app import FaceAnalysis
+# from insightface.app import FaceAnalysis
+import httpx
 
-face_app = FaceAnalysis(name="buffalo_s")  # best model
-face_app.prepare(ctx_id=-1)  # use -1 for CPU
+# face_app = FaceAnalysis(name="buffalo_s")  # best model
+# face_app.prepare(ctx_id=-1)  # use -1 for CPU
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
 
@@ -48,11 +49,13 @@ async def upload_photos(
             continue
         
         try:
-            descriptors = extract_face_descriptors(content)
+            # descriptors = extract_face_descriptors(content)
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(f"http://192.99.42.157:8000/index-photo/{photo.id}")
         except Exception as e:
-            descriptors = []
             print("Face extraction failed:", e)
 
+        descriptors = []
         stored = await upload_file(content, file.filename, event.id)
 
         photo = Photo(
@@ -63,6 +66,7 @@ async def upload_photos(
             url=stored["url"],
             face_descriptors=descriptors,
             faces_indexed=len(descriptors),
+            indexing_status="pending"
         )
         db.add(photo)
         saved.append(photo)
@@ -72,50 +76,50 @@ async def upload_photos(
         await db.refresh(photo)
     return [PhotoOut.model_validate(p) for p in saved]
 
-def extract_face_descriptors(image_bytes: bytes):
-    np_arr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+# def extract_face_descriptors(image_bytes: bytes):
+#     np_arr = np.frombuffer(image_bytes, np.uint8)
+#     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-    if img is None:
-        return []
+#     if img is None:
+#         return []
 
-    # ✅ resize (huge speed boost)
-    h, w = img.shape[:2]
-    if w > 640:
-        scale = 640 / w
-        img = cv2.resize(img, (int(w * scale), int(h * scale)))
+#     # ✅ resize (huge speed boost)
+#     h, w = img.shape[:2]
+#     if w > 640:
+#         scale = 640 / w
+#         img = cv2.resize(img, (int(w * scale), int(h * scale)))
 
-    faces = face_app.get(img)
+#     faces = face_app.get(img)
 
-    if not faces:
-        return []
+#     if not faces:
+#         return []
 
-    # ✅ sort by face size (largest first)
-    faces = sorted(
-        faces,
-        key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]),
-        reverse=True
-    )
+#     # ✅ sort by face size (largest first)
+#     faces = sorted(
+#         faces,
+#         key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]),
+#         reverse=True
+#     )
 
-    # ✅ keep only top 2–3 faces
-    faces = faces[:3]
+#     # ✅ keep only top 2–3 faces
+#     faces = faces[:3]
 
-    descriptors = []
-    for face in faces:
-        # ✅ confidence filter
-        if face.det_score < 0.7:
-            continue
+#     descriptors = []
+#     for face in faces:
+#         # ✅ confidence filter
+#         if face.det_score < 0.7:
+#             continue
 
-        emb = face.embedding
+#         emb = face.embedding
 
-        # ✅ normalize
-        norm = np.linalg.norm(emb)
-        if norm != 0:
-            emb = emb / norm
+#         # ✅ normalize
+#         norm = np.linalg.norm(emb)
+#         if norm != 0:
+#             emb = emb / norm
 
-        descriptors.append(emb.tolist())
+#         descriptors.append(emb.tolist())
 
-    return descriptors
+#     return descriptors
 
 # ── Save face descriptors ─────────────────────────────
 @router.post("/{photo_id}/descriptors")

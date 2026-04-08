@@ -13,6 +13,7 @@ from app.models.event import Event, EventStatus
 from app.models.link import AudienceLink
 from app.models.photo import Photo
 from app.schemas import LinkOut, FaceSearchResult, AudienceMatchRequest, AudienceMatchResponse
+import httpx
 
 router = APIRouter(prefix="/links", tags=["Audience Links"])
 
@@ -121,7 +122,7 @@ async def audience_photos(token: str, db: AsyncSession = Depends(get_db)):
     }
 
 from math import sqrt
-from .photos import extract_face_descriptors
+# from .photos import extract_face_descriptors
 
 def normalize(v):
     # flatten if nested
@@ -137,6 +138,7 @@ def normalize(v):
 def cosine_distance(a, b):
     return 1 - sum(x * y for x, y in zip(a, b))
 
+import json
 
 @router.post("/audience/{token}/match-photos", response_model=AudienceMatchResponse)
 async def audience_match_photos(
@@ -148,7 +150,6 @@ async def audience_match_photos(
     # payload: AudienceMatchRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    print("Received match request:", token, offset, limit, threshold, file.filename)
     link_result = await db.execute(
         select(AudienceLink).where(
             AudienceLink.token == token,
@@ -192,7 +193,15 @@ async def audience_match_photos(
 
     # 🔥 normalize once
     contents = await file.read()
-    user_face = extract_face_descriptors(contents)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        user_face_result = await client.post(
+            "http://192.99.42.157:8000/audience/extract-face",
+            files={"file": ("image.jpg", contents, "image/jpeg")}
+        )
+
+    user_face = user_face_result.json().get("descriptors", [])
+    if isinstance(user_face, str):
+        user_face = json.loads(user_face)
     user_descriptor = normalize(user_face)
 
     for p in photos:

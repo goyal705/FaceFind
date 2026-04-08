@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from app.core.database import Base
@@ -15,6 +15,9 @@ class Photo(Base):
     face_descriptors = Column(JSON, nullable=True)       # list of face embedding arrays
     faces_indexed    = Column(Integer, default=0)        # number of faces found
     uploaded_at  = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    indexing_status = Column(String, default="pending", index=True)   # pending, processing, done, failed
+    indexing_error = Column(Text, nullable=True)
+    indexed_at = Column(DateTime(timezone=True), nullable=True)
 
     event        = relationship("Event", back_populates="photos")
     uploader     = relationship("User", back_populates="uploads")

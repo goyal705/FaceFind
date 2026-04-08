@@ -128,6 +128,7 @@ async function startUpload() {
       setItemStatus(item, "error");
       continue;
     }
+    item.barEl.style.width = "100%"
     setItemStatus(item, "indexing");
     setItemStatus(item, "done");
     // try {
