@@ -47,13 +47,6 @@ async def upload_photos(
         content = await file.read()
         if len(content) > MAX_FILE_SIZE:
             continue
-        
-        try:
-            # descriptors = extract_face_descriptors(content)
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                await client.post(f"{settings.MODEL_URL}/index-photo/{photo.id}")
-        except Exception as e:
-            print("Face extraction failed:", e)
 
         descriptors = []
         stored = await upload_file(content, file.filename, event.id)
@@ -74,6 +67,14 @@ async def upload_photos(
     await db.commit()
     for photo in saved:
         await db.refresh(photo)
+    
+    try:
+        # descriptors = extract_face_descriptors(content)
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(f"{settings.MODEL_URL}/index-photo/{photo.id}")
+    except Exception as e:
+        print("Face extraction failed:", e)
+    
     return [PhotoOut.model_validate(p) for p in saved]
 
 # def extract_face_descriptors(image_bytes: bytes):
