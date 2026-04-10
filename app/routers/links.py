@@ -195,7 +195,7 @@ async def audience_match_photos(
     contents = await file.read()
     async with httpx.AsyncClient(timeout=10.0) as client:
         user_face_result = await client.post(
-            "http://192.99.42.157:8000/audience/extract-face",
+            f"{settings.MODEL_URL}/audience/extract-face",
             files={"file": ("image.jpg", contents, "image/jpeg")}
         )
 

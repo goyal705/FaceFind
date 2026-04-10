@@ -51,7 +51,7 @@ async def upload_photos(
         try:
             # descriptors = extract_face_descriptors(content)
             async with httpx.AsyncClient(timeout=5.0) as client:
-                await client.post(f"http://192.99.42.157:8000/index-photo/{photo.id}")
+                await client.post(f"{settings.MODEL_URL}/index-photo/{photo.id}")
         except Exception as e:
             print("Face extraction failed:", e)
 
