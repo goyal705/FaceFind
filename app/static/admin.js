@@ -383,10 +383,30 @@ function fmtDate(d) {
 function copyText(elId) {
   const el = document.getElementById(elId);
   const val = el.dataset.value || el.textContent;
-  navigator.clipboard
-    .writeText(val)
-    .then(() => toast("Copied!"))
-    .catch(() => toast("Copy failed", "err"));
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(val)
+      .then(() => toast("Copied!"))
+      .catch(() => toast("Copy failed", "err"));
+  } else {
+    // fallback
+    const textarea = document.createElement("textarea");
+    textarea.value = val;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+      document.execCommand("copy");
+      toast("Copied!");
+    } catch (err) {
+      toast("Copy failed", "err");
+    }
+
+    document.body.removeChild(textarea);
+  }
 }
 
 // Close modal on overlay click
