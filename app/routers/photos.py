@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -145,11 +145,13 @@ async def save_descriptors(
 @router.get("/event/{event_id}", response_model=List[PhotoOut])
 async def list_photos(
     event_id: int,
+    limit: int = Query(20, ge=1, le=30),
+    offset: int = Query(0, ge=0),
     uploader: User = Depends(require_uploader),
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
-        select(Photo).where(Photo.event_id == event_id).order_by(Photo.uploaded_at.desc())
+        select(Photo).where(Photo.event_id == event_id).order_by(Photo.uploaded_at.desc()).offset(offset).limit(limit)
     )
     return [PhotoOut.model_validate(p) for p in result.scalars().all()]
 

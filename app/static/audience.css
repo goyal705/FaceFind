@@ -584,3 +584,18 @@ header {
     grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
   }
 }
+
+#upload-fallback {
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+#snap-preview {
+  display: none;
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 50%;
+  margin: 12px auto;
+  border: 2px solid #c084fc;
+}

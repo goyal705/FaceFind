@@ -9,7 +9,22 @@ let links = [];
 let photoToDelete = null;
 let uploadToken = window.UPLOAD_TOKEN || getTokenFromURL() || "";
 const serverUploadToken = window.SERVER_UPLOAD_TOKEN || "";
+let galleryOffset = 0;
+let galleryLimit = 20;
+let galleryLoading = false;
+let galleryEnded = false;
 
+
+window.addEventListener("scroll", () => {
+  if (galleryLoading || galleryEnded) return;
+
+  const scrollBottom =
+    window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+
+  if (scrollBottom) {
+    loadGallery(false); // load more
+  }
+});
 
 function getTokenFromURL() {
   const params = new URLSearchParams(window.location.search);
@@ -339,43 +354,102 @@ async function loadEvent() {
 }
 
 // ══ GALLERY ═══════════════════════════════════════════
-async function loadGallery() {
+async function loadGallery(reset = true) {
   if (!currentEvent) return;
+
   const c = document.getElementById("gallery-container");
-  c.innerHTML =
-    '<div class="gallery-loading"><div class="spin" style="border-top-color:var(--accent)"></div> Loading photos…</div>';
+
+  if (reset) {
+    galleryOffset = 0;
+    galleryEnded = false;
+    c.innerHTML =
+      '<div class="gallery-loading"><div class="spin" style="border-top-color:var(--accent)"></div> Loading photos…</div>';
+  }
+
+  if (galleryLoading || galleryEnded) return;
+
+  galleryLoading = true;
+
   try {
-    const photos = await api("GET", `/photos/event/${currentEvent.id}`);
-    renderGallery(photos);
+    const res = await api(
+      "GET",
+      `/photos/event/${currentEvent.id}?limit=${galleryLimit}&offset=${galleryOffset}`
+    );
+
+    // if you used response with {data, total}
+    const photos = res.data || res;
+
+    if (reset) {
+      renderGallery(photos);
+    } else {
+      appendGallery(photos);
+    }
+
+    // update offset
+    galleryOffset += photos.length;
+
+    // stop if no more data
+    if (photos.length < galleryLimit) {
+      galleryEnded = true;
+    }
+
   } catch (e) {
-    c.innerHTML = `<div class="empty-state"><span class="icon">⚠️</span><h3>Could not load photos</h3><p>${esc(e.message)}</p></div>`;
+    if (reset) {
+      c.innerHTML = `<div class="empty-state"><span class="icon">⚠️</span><h3>Could not load photos</h3><p>${esc(e.message)}</p></div>`;
+    }
+  } finally {
+    galleryLoading = false;
   }
 }
 
 function renderGallery(photos) {
   const c = document.getElementById("gallery-container");
   const countEl = document.getElementById("gallery-count");
+
   countEl.textContent = photos.length ? `(${photos.length})` : "";
+
   if (!photos.length) {
-    c.innerHTML = `<div class="empty-state"><span class="icon">🖼️</span><h3>No photos yet</h3><p>Upload photos using the drop zone above.</p></div>`;
+    c.innerHTML = `<div class="empty-state"><span class="icon">🖼️</span><h3>No photos yet</h3></div>`;
     return;
   }
-  c.innerHTML = `<div class="gallery-grid">${photos
-    .map((p) => {
-      const url = p.url?.startsWith("http")
-        ? p.url
-        : window.location.origin + p.url;
-      return `
-      <div class="gallery-item" id="gc-${p.id}">
-        <img src="${url}" alt="${esc(p.filename)}" loading="lazy">
-        <div class="gallery-overlay">
-          <span class="gallery-faces">👤 ${p.faces_indexed || 0} face${p.faces_indexed !== 1 ? "s" : ""}</span>
-          <button class="del-btn" onclick="askDelete(${p.id},event)" title="Delete">✕</button>
-        </div>
-      </div>`;
-    })
-    .join("")}</div>`;
+
+  c.innerHTML = `<div class="gallery-grid" id="gallery-grid">
+    ${photos.map(renderPhotoCard).join("")}
+  </div>`;
 }
+
+function appendGallery(photos) {
+  const grid = document.getElementById("gallery-grid");
+  if (!grid) return;
+
+  grid.insertAdjacentHTML(
+    "beforeend",
+    photos.map(renderPhotoCard).join("")
+  );
+
+  // update count
+  const countEl = document.getElementById("gallery-count");
+  const current = parseInt(countEl.textContent.replace(/\D/g, "")) || 0;
+  countEl.textContent = `(${current + photos.length})`;
+}
+
+function renderPhotoCard(p) {
+  const url = p.url?.startsWith("http")
+    ? p.url
+    : window.location.origin + p.url;
+
+  return `
+    <div class="gallery-item" id="gc-${p.id}">
+      <img src="${url}" alt="${esc(p.filename)}" loading="lazy">
+      <div class="gallery-overlay">
+        <span class="gallery-faces">👤 ${p.faces_indexed || 0} face${p.faces_indexed !== 1 ? "s" : ""}</span>
+        <button class="del-btn" onclick="askDelete(${p.id},event)">✕</button>
+      </div>
+    </div>
+  `;
+}
+
+
 
 // ── Delete ────────────────────────────────────────────
 function askDelete(id, e) {

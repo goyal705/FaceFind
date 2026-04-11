@@ -5,7 +5,8 @@ let audienceToken = null;
 let eventData = null; // { event_id, event_name, photos: [...] }
 let userDescriptor = null;
 let stream = null;
-let lightboxUrl = "", lightboxName = "";
+let lightboxUrl = "",
+  lightboxName = "";
 let foundMatches = [];
 let totalProcessed = 0;
 let isSearching = false;
@@ -13,7 +14,6 @@ let capturedBlob = null;
 const MATCH_THRESHOLD = 0.52;
 const BATCH_SIZE = 10;
 const PARALLEL_WORKERS = 3;
-
 const toast = (msg, type = "ok") => {
   const t = document.getElementById("toast");
   t.textContent = msg;
@@ -44,7 +44,7 @@ async function loadModels() {
 
   const nets = [
     { name: "Face Detector", key: "tinyFaceDetector" },
-    { name: "Landmarks", key: "faceLandmark68TinyNet" },
+    { name: "Landmarks", key: "faceLandmark68Net" },
     { name: "Recognition", key: "faceRecognitionNet" },
   ];
 
@@ -93,13 +93,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    eventData = await fetch(`${API}/links/audience/${audienceToken}/photos`).then((r) => {
+    eventData = await fetch(
+      `${API}/links/audience/${audienceToken}/photos`,
+    ).then((r) => {
       if (!r.ok) throw new Error("invalid");
       return r.json();
     });
 
     document.getElementById("event-title").textContent = eventData.event_name;
-    document.getElementById("photo-count-display").textContent = eventData.photos.length;
+    document.getElementById("photo-count-display").textContent =
+      eventData.photos.length;
     document.getElementById("main-app").style.display = "block";
   } catch (e) {
     showInvalid();
@@ -130,7 +133,9 @@ function setStep(n) {
   });
 }
 
-// ── Camera ────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// CAMERA START
+// ─────────────────────────────────────────────
 async function startCamera() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -143,45 +148,96 @@ async function startCamera() {
 
     document.getElementById("cam-ring").classList.add("on");
     document.getElementById("scan-line").classList.add("on");
-    document.getElementById("cam-status").textContent = "Camera ready — look straight ahead";
+
+    document.getElementById("cam-status").textContent =
+      "Camera ready — look straight ahead";
     document.getElementById("cam-status").className = "camera-status ok";
+
     document.getElementById("btn-snap").disabled = false;
     document.getElementById("btn-start-cam").style.display = "none";
+
+    // show upload also (optional hybrid UX)
+    document.getElementById("upload-fallback").style.display = "block";
   } catch (e) {
+    console.error(e);
+
     document.getElementById("cam-status").textContent =
-      "Camera denied. Please allow camera access.";
+      "Camera not available. Upload a photo instead.";
     document.getElementById("cam-status").className = "camera-status err";
-    toast("Camera access denied", "err");
+
+    // 🔥 SHOW UPLOAD FALLBACK
+    document.getElementById("upload-fallback").style.display = "block";
+
+    toast("Camera not working. Use upload.", "err");
   }
 }
 
+// ─────────────────────────────────────────────
+// IMAGE UPLOAD HANDLER
+// ─────────────────────────────────────────────
+async function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const preview = document.getElementById("snap-preview");
+
+  // show preview
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+
+  document.getElementById("cam-status").textContent =
+    "Photo selected. Click 'Find My Photos'";
+  document.getElementById("cam-status").className = "camera-status ok";
+
+  document.getElementById("btn-snap").disabled = false;
+
+  // store globally
+  window.uploadedImageFile = file;
+}
+
+// ─────────────────────────────────────────────
+// CAPTURE OR UPLOAD → DETECT → SEARCH
+// ─────────────────────────────────────────────
 async function captureAndSearch() {
   const video = document.getElementById("video");
   const canvas = document.getElementById("canvas");
   const btn = document.getElementById("btn-snap");
+  const status = document.getElementById("cam-status");
 
   btn.disabled = true;
   btn.innerHTML = '<div class="spin"></div>';
 
-  const status = document.getElementById("cam-status");
   status.textContent = "Detecting your face…";
   status.className = "camera-status";
 
-  canvas.width = video.videoWidth || 640;
-  canvas.height = video.videoHeight || 480;
+  let imageSource;
 
-  const ctx = canvas.getContext("2d");
-  ctx.save();
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-  ctx.restore();
+  // 🔥 CASE 1: UPLOAD
+  if (window.uploadedImageFile) {
+    imageSource = await createImageBitmap(window.uploadedImageFile);
 
-  // convert to blob
-  const blob = await new Promise((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", 0.9)
-  );
+    canvas.width = imageSource.width;
+    canvas.height = imageSource.height;
 
-  capturedBlob = blob;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(imageSource, 0, 0);
+
+    capturedBlob = window.uploadedImageFile;
+  } else {
+    // 🔥 CASE 2: CAMERA
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const ctx = canvas.getContext("2d");
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
+
+    capturedBlob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.9),
+    );
+  }
 
   const opts = new faceapi.TinyFaceDetectorOptions({
     inputSize: 320,
@@ -189,21 +245,39 @@ async function captureAndSearch() {
   });
 
   try {
-    const det = await faceapi
-      .detectSingleFace(canvas, opts)
-      .withFaceLandmarks(true)
-      .withFaceDescriptor();
+    const detections = await faceapi
+      .detectAllFaces(canvas, opts)
+      .withFaceLandmarks()
+      .withFaceDescriptors();
 
-    if (!det) {
-      status.textContent = "No face detected. Try better lighting or angle.";
+    console.log("Detections", detections);
+    
+
+    if (!detections || detections.length === 0) {
+      status.textContent = "No face detected. Try better lighting.";
       status.className = "camera-status err";
+
       btn.disabled = false;
       btn.innerHTML = "🔍 Find My Photos";
+
       toast("No face found", "err");
       return;
     }
 
-    userDescriptor = det.descriptor;
+    // 🔥 MULTIPLE FACE CHECK
+    if (detections.length > 1) {
+      status.textContent =
+        "Multiple faces detected. Use a photo with only your face.";
+      status.className = "camera-status err";
+
+      btn.disabled = false;
+      btn.innerHTML = "🔍 Find My Photos";
+
+      toast("Only one face allowed", "err");
+      return;
+    }
+
+    userDescriptor = detections[0].descriptor;
 
     const snap = document.getElementById("snap-preview");
     snap.src = canvas.toDataURL("image/jpeg", 0.85);
@@ -212,6 +286,7 @@ async function captureAndSearch() {
     status.textContent = "Face captured! Searching photos…";
     status.className = "camera-status ok";
 
+    // stop camera if running
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       stream = null;
@@ -226,30 +301,33 @@ async function captureAndSearch() {
     await runSearch();
   } catch (e) {
     console.log(e);
-    
+
     status.textContent = "Processing error, please try again.";
     status.className = "camera-status err";
+
     btn.disabled = false;
     btn.innerHTML = "🔍 Find My Photos";
   }
 }
 
-// ── Batch matching API ────────────────────────────────
+// ─────────────────────────────────────────────
+// MATCH API
+// ─────────────────────────────────────────────
 async function matchBatch(offset, limit) {
   const formData = new FormData();
+
   formData.append("file", capturedBlob, "capture.jpg");
   formData.append("offset", String(offset));
   formData.append("limit", String(limit));
   formData.append("threshold", String(MATCH_THRESHOLD));
-  console.log(formData);
-  
-  const res = await fetch(`${API}/links/audience/${audienceToken}/match-photos`, {
-    method: "POST",
-    // headers: {
-    //   "Content-Type": "application/json",
-    // },
-    body: formData,
-  });
+
+  const res = await fetch(
+    `${API}/links/audience/${audienceToken}/match-photos`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
 
   if (!res.ok) {
     throw new Error("Match API failed");
@@ -345,7 +423,7 @@ async function runSearch() {
 
     const workers = Array.from(
       { length: Math.min(PARALLEL_WORKERS, offsets.length) },
-      () => worker()
+      () => worker(),
     );
 
     await Promise.all(workers);
@@ -418,9 +496,13 @@ function showResults(matches, options = {}) {
   });
 
   if (incremental && matches.length) {
-    toast(`Found ${matches.length} photo${matches.length > 1 ? "s" : ""} so far`);
+    toast(
+      `Found ${matches.length} photo${matches.length > 1 ? "s" : ""} so far`,
+    );
   } else if (done) {
-    toast(`Found you in ${matches.length} photo${matches.length > 1 ? "s" : ""}!`);
+    toast(
+      `Found you in ${matches.length} photo${matches.length > 1 ? "s" : ""}!`,
+    );
   }
 }
 
@@ -467,7 +549,8 @@ function resetScan() {
   document.getElementById("cam-ring").classList.remove("on");
   document.getElementById("scan-line").classList.remove("on");
 
-  document.getElementById("cam-status").textContent = 'Press "Start Camera" to begin';
+  document.getElementById("cam-status").textContent =
+    'Press "Start Camera" to begin';
   document.getElementById("cam-status").className = "camera-status";
 
   document.getElementById("btn-snap").disabled = true;
