@@ -198,11 +198,15 @@ async def audience_match_photos(
             f"{settings.MODEL_URL}/audience/extract-face",
             files={"file": ("image.jpg", contents, "image/jpeg")}
         )
+    print(user_face_result.json())
 
     user_face = user_face_result.json().get("descriptors", [])
     if isinstance(user_face, str):
         user_face = json.loads(user_face)
-    user_descriptor = normalize(user_face)
+    if len(user_face) == 0:
+        user_descriptor = []
+    else:
+        user_descriptor = normalize(user_face)
 
     for p in photos:
         if not p.face_descriptors:
