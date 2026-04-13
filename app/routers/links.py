@@ -196,8 +196,8 @@ async def audience_match_photos(
     # 🔥 normalize once
     contents = await file.read()
     
-    # MODEL_URL = settings.MODEL_URL
-    MODEL_URL = "http://localhost:8001"
+    MODEL_URL = settings.MODEL_URL
+    # MODEL_URL = "http://localhost:8001"
     user_face_result = requests.post(
         f"{MODEL_URL}/audience/extract-face",
         files={"file": ("image.jpg", contents, "image/jpeg")}
