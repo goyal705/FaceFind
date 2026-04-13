@@ -69,9 +69,11 @@ async def upload_photos(
         await db.refresh(photo)
     
     try:
+        # MODEL_URL = "http://localhost:8001"
+        MODEL_URL = settings.MODEL_URL
         # descriptors = extract_face_descriptors(content)
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(f"{settings.MODEL_URL}/index-photo/{photo.id}")
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(f"{MODEL_URL}/index-photo/{photo.id}")
     except Exception as e:
         print("Face extraction failed:", e)
     

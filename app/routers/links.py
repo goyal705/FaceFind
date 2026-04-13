@@ -14,6 +14,7 @@ from app.models.link import AudienceLink
 from app.models.photo import Photo
 from app.schemas import LinkOut, FaceSearchResult, AudienceMatchRequest, AudienceMatchResponse
 import httpx
+import requests
 
 router = APIRouter(prefix="/links", tags=["Audience Links"])
 
@@ -150,6 +151,7 @@ async def audience_match_photos(
     # payload: AudienceMatchRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    print("Received match request:", token, offset, limit, threshold, file.filename)
     link_result = await db.execute(
         select(AudienceLink).where(
             AudienceLink.token == token,
@@ -190,15 +192,23 @@ async def audience_match_photos(
     photos = rows[:limit]
 
     matches = []
-
+    print("Received bytes:", len(file.file._file.getvalue()))
     # 🔥 normalize once
     contents = await file.read()
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        user_face_result = await client.post(
-            f"{settings.MODEL_URL}/audience/extract-face",
-            files={"file": ("image.jpg", contents, "image/jpeg")}
-        )
-    print(user_face_result.json())
+    
+    # MODEL_URL = settings.MODEL_URL
+    MODEL_URL = "http://localhost:8001"
+    user_face_result = requests.post(
+        f"{MODEL_URL}/audience/extract-face",
+        files={"file": ("image.jpg", contents, "image/jpeg")}
+    )
+    # async with httpx.AsyncClient(timeout=10.0) as client:
+    #     # MODEL_URL = settings.MODEL_URL
+    #     MODEL_URL = "http://localhost:8001"
+    #     user_face_result = await client.post(
+    #         f"{MODEL_URL}/audience/extract-face",
+    #         files={"file": ("image.jpg", contents, "image/jpeg")}
+    #     )
 
     user_face = user_face_result.json().get("descriptors", [])
     if isinstance(user_face, str):
